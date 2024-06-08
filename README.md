@@ -9,7 +9,7 @@ curl --location --request POST 'http://localhost:8080/api/generateToken' \
 --header 'Content-Type: application/json' \
 --data ''
 
-## Validate Token
+# Validate Token
 
 To generate a token, use the following `curl` command:
 
