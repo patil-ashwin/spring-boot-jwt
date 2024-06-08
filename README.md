@@ -11,7 +11,7 @@ curl --location --request POST 'http://localhost:8080/api/generateToken' \
 
 # Validate Token
 
-To generate a token, use the following `curl` command:
+To validate a token, use the following `curl` command:
 
 ```sh
 curl --location 'http://localhost:8080/api/validateToken' \
