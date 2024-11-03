@@ -266,3 +266,63 @@ public class AuthClient {
     }
 }
 
+
+package com.example.auth.client;
+
+import lombok.extern.slf4j.Slf4j;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.util.Timeout;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+
+@Slf4j
+public class AuthClient {
+
+    private final CloseableHttpClient client;
+
+    public AuthClient(Duration connectionTimeout, Duration socketTimeout, Duration connectionRequestTimeout) {
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectTimeout(Timeout.ofMilliseconds(connectionTimeout.toMillis()))
+                .setResponseTimeout(Timeout.ofMilliseconds(socketTimeout.toMillis()))
+                .setConnectionRequestTimeout(Timeout.ofMilliseconds(connectionRequestTimeout.toMillis()))
+                .build();
+
+        this.client = HttpClients.custom()
+                .setDefaultRequestConfig(requestConfig)
+                .build();
+    }
+
+    public String sendPost(String url, String formData) throws IOException {
+        HttpPost request = new HttpPost(url);
+        request.setEntity(new StringEntity(formData, ContentType.APPLICATION_FORM_URLENCODED));
+
+        // Using a response handler to handle the response processing
+        var responseHandler = response -> {
+            int statusCode = response.getCode();
+            String responseBody = response.getEntity() != null ? EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8) : "";
+
+            log.info("Received response: Status Code = {}, Body = {}", statusCode, responseBody);
+
+            if (statusCode >= 200 && statusCode < 300) {
+                return responseBody;
+            } else {
+                log.error("Non-successful response received: Status Code = {}, Body = {}", statusCode, responseBody);
+                throw new IOException("Received non-success response: " + statusCode + " - " + responseBody);
+            }
+        };
+
+        // Execute the request with the response handler
+        return client.execute(request, responseHandler);
+    }
+}
+
+
