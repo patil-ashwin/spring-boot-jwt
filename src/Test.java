@@ -514,7 +514,90 @@ public class AuthClient {
     }
 }
 
+package com.example.auth.client;
 
+import com.example.auth.exception.AuthRequestException;
+import com.example.auth.response.TokenResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Slf4j
+public class AuthClient {
+
+    private static final int TIMEOUT_SECONDS = 5;
+    private final HttpClient client;
+    private final ObjectMapper objectMapper;
+
+    public AuthClient() {
+        this.client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(TIMEOUT_SECONDS))
+                .build();
+        this.objectMapper = new ObjectMapper();
+    }
+
+    public HttpResponse<TokenResponse> sendPost(String url, Map<String, String> formParams) {
+        String formData = formParams.entrySet()
+                .stream()
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .collect(Collectors.joining("&"));
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(TIMEOUT_SECONDS))
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .POST(HttpRequest.BodyPublishers.ofString(formData, StandardCharsets.UTF_8))
+                .build();
+
+        logRequestDetails(request, formData);
+
+        try {
+            HttpResponse<TokenResponse> response = client.send(request, responseInfo -> {
+                HttpResponse.BodySubscriber<String> subscriber = HttpResponse.BodySubscribers.ofString(StandardCharsets.UTF_8);
+                return HttpResponse.BodySubscribers.mapping(subscriber, body -> {
+                    try {
+                        log.info("Received response body: {}", body);
+                        return objectMapper.readValue(body, TokenResponse.class);
+                    } catch (IOException e) {
+                        log.error("Failed to parse JSON response: {}", e.getMessage(), e);
+                        throw new AuthRequestException("Failed to parse JSON response", e);
+                    }
+                });
+            });
+
+            logResponseDetails(response);
+            return response;
+
+        } catch (IOException | InterruptedException e) {
+            log.error("Exception during request to Microsoft login: {}", e.getMessage(), e);
+            throw new AuthRequestException("Request to Microsoft login failed", e);
+        }
+    }
+
+    private void logRequestDetails(HttpRequest request, String formData) {
+        log.info("Sending HTTP Request:");
+        log.info("Method: {}", request.method());
+        log.info("URL: {}", request.uri());
+        log.info("Headers: {}", request.headers().map());
+        log.info("Request Body (Form Params): {}", formData);
+    }
+
+    private void logResponseDetails(HttpResponse<?> response) {
+        log.info("Received HTTP Response:");
+        log.info("Status Code: {}", response.statusCode());
+        log.info("Headers: {}", response.headers().map());
+        log.info("Response Body: {}", response.body());
+    }
+}
 
 
 
